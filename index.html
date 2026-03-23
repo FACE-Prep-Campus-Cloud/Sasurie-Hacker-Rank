@@ -357,6 +357,7 @@ td { padding: 8px 10px; color: var(--ink); vertical-align: middle; line-height: 
 #recordSearch { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding: 6px 10px 6px 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); font-family: 'Fira Code', 'Courier New', monospace; font-size: 10px; color: var(--ink); outline: none; width: 160px; transition: border .2s ease, box-shadow .2s ease; box-shadow: none; -webkit-box-shadow: none; line-height: var(--lh-base); height: 28px; }
 #recordSearch:focus { border-color: var(--emerald); box-shadow: 0 0 0 2px rgba(10,92,68,.12); }
 
+/* ── FOOTER ── */
 .footer { text-align: center; padding: 16px 0 0; font-size: 8.5px; color: var(--muted); font-family: 'Fira Code', 'Courier New', monospace; border-top: 1px solid var(--border2); margin-top: 8px; letter-spacing: 1px; line-height: 1.8; }
 .footer span { color:var(--gold); }
 
@@ -428,16 +429,7 @@ td { padding: 8px 10px; color: var(--ink); vertical-align: middle; line-height: 
   </div>
 </header>
 
-<!-- INFO BAR -->
-<div class="info-bar">
-  <div class="live-badge"><div class="live-dot"></div>LIVE</div>
-  <span class="last-updated" id="last-updated-txt">Fetching…</span>
-  <div style="flex:1"></div>
-  <button class="refresh-btn" id="refreshBtn" onclick="refreshCurrentDept()">
-    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-    Refresh Data
-  </button>
-</div>
+
 
 <!-- ERROR BANNER -->
 <div class="error-banner" id="errorBanner">
@@ -553,6 +545,17 @@ td { padding: 8px 10px; color: var(--ink); vertical-align: middle; line-height: 
   </div>
 </div>
 
+<!-- INFO BAR -->
+<div class="info-bar">
+  <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+  <span class="last-updated" id="last-updated-txt">Fetching…</span>
+  <div style="flex:1"></div>
+  <button class="refresh-btn" id="refreshBtn" onclick="refreshCurrentDept()">
+    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    Refresh Data
+  </button>
+</div>
+
 <div class="footer">
   SASURIE College of Arts &amp; Science &nbsp;·&nbsp; <span>HackerRank Challenge Report</span> &nbsp;·&nbsp; Academic Year 2024–25
 </div>
@@ -614,13 +617,17 @@ function buildCSVUrl(sheetId, gid) {
 async function fetchSheetData(deptIdx) {
   const cfg = SHEET_CONFIG[deptIdx];
   const url = buildCSVUrl(cfg.id, cfg.gid);
+  const t0 = Date.now();
 
   try {
     const resp = await fetch(url, { cache: 'no-store' });
     if (!resp.ok) throw new Error('HTTP ' + resp.status + ' — sheet may not be public');
     const csv = await resp.text();
-    return parseCSV(csv, deptIdx);
+    const result = parseCSV(csv, deptIdx);
+    const ms = Date.now() - t0;
+    return result;
   } catch (err) {
+    const ms = Date.now() - t0;
     throw new Error('Could not fetch ' + cfg.name + ' data. Make sure the sheet is set to "Anyone with the link can view". Details: ' + err.message);
   }
 }
@@ -1071,6 +1078,8 @@ function downloadPage(){
 (async function init() {
   const overlay = document.getElementById('loading-overlay');
   overlay.style.display = 'flex';
+
+
   await loadAndRenderDept(0, true);
 })();
 </script>
