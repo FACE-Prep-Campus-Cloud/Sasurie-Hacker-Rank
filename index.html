@@ -429,8 +429,6 @@ td { padding: 8px 10px; color: var(--ink); vertical-align: middle; line-height: 
   </div>
 </header>
 
-
-
 <!-- ERROR BANNER -->
 <div class="error-banner" id="errorBanner">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -566,31 +564,11 @@ td { padding: 8px 10px; color: var(--ink); vertical-align: middle; line-height: 
    GOOGLE SHEETS CONFIGURATION
    ══════════════════════════════════════════════════════ */
 const SHEET_CONFIG = {
-  0: { // AI & DS
-    id: '1gQMOlAojPUPcDh0ht_6fR6N90OahdQ8PKPPb7v-wXXA',
-    name: 'I B.Sc AI & DS',
-    short: 'AI & DS',
-    color: '#0a5c44',
-    gid: '0'
-  },
-  1: { // IT
-    id: '1P4-S8eNgt9nrv82-9TeG6Pi-A68rLZl9Y5wRi_x_Hgk',
-    name: 'I B.Sc IT',
-    short: 'IT',
-    color: '#0f6b7a',
-    gid: '0'
-  },
-  2: { // CS
-    id: '1F7RzKVt-AveiMSgWqsm5K41L1nR5IJPsWNklUeNyDHM',
-    name: 'I B.Sc CS',
-    short: 'CS',
-    color: '#5c2d6b',
-    gid: '0'
-  }
+  0: { id: '1gQMOlAojPUPcDh0ht_6fR6N90OahdQ8PKPPb7v-wXXA', name: 'I B.Sc AI & DS', short: 'AI & DS', color: '#0a5c44', gid: '0' },
+  1: { id: '1P4-S8eNgt9nrv82-9TeG6Pi-A68rLZl9Y5wRi_x_Hgk', name: 'I B.Sc IT',      short: 'IT',      color: '#0f6b7a', gid: '0' },
+  2: { id: '1F7RzKVt-AveiMSgWqsm5K41L1nR5IJPsWNklUeNyDHM', name: 'I B.Sc CS',      short: 'CS',      color: '#5c2d6b', gid: '0' }
 };
 
-// Topics — these must match the column headers in your Google Sheet
-// The parser will auto-detect topic columns from the sheet header row
 const KNOWN_TOPICS = [
   'Input & Output','Operators','Decision Making','Looping','Series',
   'Pattern','Arrays 1D','Arrays 2D','Strings','Function',
@@ -604,12 +582,9 @@ const topicColors = [
   '#0a5c44','#0f6b7a','#b8860b','#9b2d1f','#0a5c44','#5c2d6b','#0f6b7a'
 ];
 
-/* ── CACHE ── */
 const dataCache = {};
 let currentDeptIdx = 0;
-let detectedTopics = KNOWN_TOPICS; // Will be updated from sheet headers
 
-/* ── CSV FETCH ── */
 function buildCSVUrl(sheetId, gid) {
   return 'https://docs.google.com/spreadsheets/d/' + sheetId + '/export?format=csv&gid=' + gid + '&t=' + Date.now();
 }
@@ -617,24 +592,17 @@ function buildCSVUrl(sheetId, gid) {
 async function fetchSheetData(deptIdx) {
   const cfg = SHEET_CONFIG[deptIdx];
   const url = buildCSVUrl(cfg.id, cfg.gid);
-  const t0 = Date.now();
-
   try {
     const resp = await fetch(url, { cache: 'no-store' });
     if (!resp.ok) throw new Error('HTTP ' + resp.status + ' — sheet may not be public');
     const csv = await resp.text();
-    const result = parseCSV(csv, deptIdx);
-    const ms = Date.now() - t0;
-    return result;
+    return parseCSV(csv, deptIdx);
   } catch (err) {
-    const ms = Date.now() - t0;
     throw new Error('Could not fetch ' + cfg.name + ' data. Make sure the sheet is set to "Anyone with the link can view". Details: ' + err.message);
   }
 }
 
-/* ── CSV PARSER ── */
 function parseCSVRow(row) {
-  // Handles quoted fields with commas
   const result = [];
   let current = '';
   let inQuotes = false;
@@ -656,59 +624,36 @@ function parseCSVRow(row) {
 function parseCSV(csvText, deptIdx) {
   const lines = csvText.split('\n').filter(l => l.trim());
   if (lines.length < 2) throw new Error('Sheet appears empty or has no data rows.');
-
   const headers = parseCSVRow(lines[0]);
-  
-  // Auto-detect column indices
-  // Expected sheet format:
-  // S.No | Student Name | Topic1 | Topic2 | ... | Total
-  // We'll look for a "Name" column, a "Total" column, and infer topic columns
-  
   let snoCol = -1, nameCol = -1, totalCol = -1;
-  const topicCols = []; // {index, name}
-
+  const topicCols = [];
   headers.forEach((h, i) => {
     const hl = h.toLowerCase().trim();
     if (hl.includes('s.no') || hl === 's no' || hl === 'sno' || hl === 'sl.no' || hl === 'serial') snoCol = i;
     else if (hl.includes('name') && !hl.includes('topic')) nameCol = i;
     else if (hl === 'total' || hl === 'total score' || hl === 'grand total') totalCol = i;
   });
-
-  // If sno not found, assume col 0
   if (snoCol === -1) snoCol = 0;
-  // If name not found, assume col 1
   if (nameCol === -1) nameCol = 1;
-
-  // Topic columns: all columns between name and total (exclusive), or all after name if no total
   const skipCols = new Set([snoCol, nameCol]);
   if (totalCol !== -1) skipCols.add(totalCol);
-
   headers.forEach((h, i) => {
-    if (!skipCols.has(i) && h.trim()) {
-      topicCols.push({ index: i, name: h.trim() });
-    }
+    if (!skipCols.has(i) && h.trim()) topicCols.push({ index: i, name: h.trim() });
   });
-
-  // Update global detected topics for this dept (use sheet headers if available)
   const sheetTopics = topicCols.map(t => t.name);
-
   const students = [];
   for (let r = 1; r < lines.length; r++) {
     const cols = parseCSVRow(lines[r]);
-    if (!cols.some(c => c.trim())) continue; // skip empty rows
-
+    if (!cols.some(c => c.trim())) continue;
     const rawName = nameCol < cols.length ? cols[nameCol].trim() : '';
     if (!rawName) continue;
-
-    const sno = snoCol < cols.length ? parseInt(cols[snoCol]) || (r) : r;
+    const sno = snoCol < cols.length ? parseInt(cols[snoCol]) || r : r;
     const name = rawName || 'Not Found';
-
     const scores = topicCols.map(tc => {
       const val = tc.index < cols.length ? cols[tc.index].trim() : '0';
       const num = parseFloat(val.replace(/[^0-9.-]/g, ''));
       return isNaN(num) ? 0 : Math.round(num * 100) / 100;
     });
-
     let total;
     if (totalCol !== -1 && totalCol < cols.length) {
       const tv = cols[totalCol].trim();
@@ -717,17 +662,14 @@ function parseCSV(csvText, deptIdx) {
     } else {
       total = Math.round(scores.reduce((a, b) => a + b, 0) * 100) / 100;
     }
-
     students.push({ sno, name, total, scores });
   }
-
   if (students.length === 0) throw new Error('No student rows found. Check sheet format.');
-
   return { students, topics: sheetTopics };
 }
 
 /* ── TOOLTIP ── */
-const tooltip = document.getElementById('hm-tooltip');
+const tooltip   = document.getElementById('hm-tooltip');
 const ttStudent = document.getElementById('tt-student');
 const ttTopic   = document.getElementById('tt-topic');
 const ttScore   = document.getElementById('tt-score');
@@ -805,7 +747,7 @@ async function refreshCurrentDept() {
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
   btn.disabled = true;
-  delete dataCache[currentDeptIdx]; // clear cache to force re-fetch
+  delete dataCache[currentDeptIdx];
   await loadAndRenderDept(currentDeptIdx);
   btn.classList.remove('spinning');
   btn.disabled = false;
@@ -813,12 +755,10 @@ async function refreshCurrentDept() {
 
 /* ── LOAD + RENDER ── */
 async function loadAndRenderDept(deptIdx, isInitial) {
-  const overlay = document.getElementById('loading-overlay');
+  const overlay   = document.getElementById('loading-overlay');
   const errBanner = document.getElementById('errorBanner');
   errBanner.classList.remove('show');
-
   if (!dataCache[deptIdx]) {
-    // Show loading overlay only on initial load, otherwise show spinner inline
     if (isInitial) {
       overlay.style.display = 'flex';
       overlay.style.opacity = '1';
@@ -828,29 +768,18 @@ async function loadAndRenderDept(deptIdx, isInitial) {
       const result = await fetchSheetData(deptIdx);
       dataCache[deptIdx] = result;
     } catch (err) {
-      if (isInitial) {
-        overlay.classList.add('hidden');
-        setTimeout(() => { overlay.style.display = 'none'; }, 500);
-      }
+      if (isInitial) { overlay.classList.add('hidden'); setTimeout(() => { overlay.style.display = 'none'; }, 500); }
       document.getElementById('errorMsg').textContent = err.message;
       errBanner.classList.add('show');
       document.getElementById('last-updated-txt').textContent = 'Failed to load — using cached or empty data';
       return;
     }
   }
-
   const { students: RAW, topics: TOPICS } = dataCache[deptIdx];
-
-  if (isInitial) {
-    overlay.classList.add('hidden');
-    setTimeout(() => { overlay.style.display = 'none'; }, 500);
-  }
-
-  // Update last-updated
+  if (isInitial) { overlay.classList.add('hidden'); setTimeout(() => { overlay.style.display = 'none'; }, 500); }
   const now = new Date();
   document.getElementById('last-updated-txt').textContent =
     'Last updated: ' + now.toLocaleTimeString() + ' · ' + SHEET_CONFIG[deptIdx].name + ' · ' + RAW.length + ' students';
-
   renderDept(RAW, TOPICS, deptIdx);
 }
 
@@ -919,6 +848,9 @@ function renderDept(RAW, TOPICS, deptIdx) {
   var chartLabels = top10.map(function(s){ return shortName(s); });
   var chartTotals = top10.map(function(s){ return +s.total.toFixed(2); });
 
+  // ── Y-AXIS MAX: fixed at 300 for B.Sc CS (deptIdx === 2), auto for others ──
+  var yMax = deptIdx === 2 ? 300 : undefined;
+
   var ctx = document.getElementById('top10Chart');
   if (window._top10Chart) { window._top10Chart.destroy(); }
   Chart.register(ChartDataLabels);
@@ -964,8 +896,19 @@ function renderDept(RAW, TOPICS, deptIdx) {
         }
       },
       scales: {
-        x: { grid:{color:'rgba(200,185,155,0.18)',lineWidth:0.8}, ticks:{color:'#4a3f2a',font:{family:"'Space Grotesk',sans-serif",size:11,weight:'600'}}, border:{color:'rgba(200,185,155,0.35)'} },
-        yScore: { type:'linear', position:'left', grid:{color:'rgba(200,185,155,0.18)',lineWidth:0.8}, ticks:{color:'#0a5c44',font:{family:"'Fira Code',monospace",size:10}}, border:{color:'rgba(200,185,155,0.35)'}, title:{display:true,text:'Total Score',color:'#0a5c44',font:{family:"'Fira Code',monospace",size:9,weight:'700'},padding:{bottom:4}} }
+        x: {
+          grid:{color:'rgba(200,185,155,0.18)',lineWidth:0.8},
+          ticks:{color:'#4a3f2a',font:{family:"'Space Grotesk',sans-serif",size:11,weight:'600'}},
+          border:{color:'rgba(200,185,155,0.35)'}
+        },
+        yScore: {
+          type:'linear', position:'left',
+          max: yMax,   /* ← 300 for CS, undefined (auto) for all others */
+          grid:{color:'rgba(200,185,155,0.18)',lineWidth:0.8},
+          ticks:{color:'#0a5c44',font:{family:"'Fira Code',monospace",size:10}},
+          border:{color:'rgba(200,185,155,0.35)'},
+          title:{display:true,text:'Total Score',color:'#0a5c44',font:{family:"'Fira Code',monospace",size:9,weight:'700'},padding:{bottom:4}}
+        }
       }
     }
   });
@@ -993,7 +936,6 @@ function renderDept(RAW, TOPICS, deptIdx) {
     rowLabel.title = r.name;
     rowLabel.textContent = shortName(r);
     hm.appendChild(rowLabel);
-
     TOPICS.forEach(function(_, ti) {
       var v    = r.scores[ti] || 0;
       var c    = heatCell(v);
@@ -1001,16 +943,13 @@ function renderDept(RAW, TOPICS, deptIdx) {
       cell.className = 'hm-cell animate-in';
       cell.style.cssText = 'background:'+c.bg+';color:'+c.fg+';border-color:'+c.border;
       cell.textContent = v > 0 ? v : '';
-
       var sName = r.name, tName = TOPICS[ti];
       cell.addEventListener('mouseenter', function(e){ showTooltip(e, sName, tName, v); });
       cell.addEventListener('mouseleave', hideTooltip);
-
       hm.appendChild(cell);
       allCells.push(cell);
     });
   });
-
   allCells.forEach(function(cell, idx) {
     var row   = Math.floor(idx / TOPICS.length);
     var col   = idx % TOPICS.length;
@@ -1024,7 +963,6 @@ function renderDept(RAW, TOPICS, deptIdx) {
   ['#','Student Name','Total'].concat(TOPICS).forEach(function(h){
     thead.innerHTML += '<th>'+h+'</th>';
   });
-
   var tbody = document.getElementById('tbody-rows');
   tbody.innerHTML = '';
   RAW.forEach(function(r) {
@@ -1039,10 +977,8 @@ function renderDept(RAW, TOPICS, deptIdx) {
       + '<td><span class="sno-badge">'+r.sno+'</span></td>'
       + '<td>'+nameCell+'</td>'
       + '<td><span class="total-chip">'+r.total+'</span></td>'
-      + chips
-      + '</tr>';
+      + chips + '</tr>';
   });
-
   document.getElementById('records-count').textContent = N + ' Rows';
   document.getElementById('recordSearch').value = '';
 }
@@ -1078,8 +1014,6 @@ function downloadPage(){
 (async function init() {
   const overlay = document.getElementById('loading-overlay');
   overlay.style.display = 'flex';
-
-
   await loadAndRenderDept(0, true);
 })();
 </script>
